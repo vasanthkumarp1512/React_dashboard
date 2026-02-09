@@ -15,7 +15,7 @@ export default async function AdminDashboard() {
 
     const allUsers = await db.query.users.findMany({
         where: ne(users.id, session.user.id),
-        orderBy: (users, { desc }) => [desc(users.createdAt)],
+        orderBy: (u, { desc }) => [desc(u.createdAt)],
     });
 
     return (
@@ -40,8 +40,8 @@ export default async function AdminDashboard() {
                                 <td className="px-6 py-4 text-sm text-gray-600 capitalize">{user.role}</td>
                                 <td className="px-6 py-4">
                                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${user.status === "approved" ? "bg-green-100 text-green-700" :
-                                            user.status === "rejected" ? "bg-red-100 text-red-700" :
-                                                "bg-yellow-100 text-yellow-700"
+                                        user.status === "rejected" ? "bg-red-100 text-red-700" :
+                                            "bg-yellow-100 text-yellow-700"
                                         }`}>
                                         {user.status}
                                     </span>
