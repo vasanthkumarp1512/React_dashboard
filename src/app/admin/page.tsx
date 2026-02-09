@@ -15,7 +15,7 @@ export default async function AdminDashboard() {
 
     const allUsers = await db.query.users.findMany({
         where: ne(users.id, session.user.id),
-        orderBy: (u, { desc }) => [desc(u.createdAt)],
+        orderBy: (u: any, { desc }: any) => [desc(u.createdAt)],
     });
 
     return (
@@ -33,7 +33,7 @@ export default async function AdminDashboard() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {allUsers.map((user) => (
+                        {allUsers.map((user: any) => (
                             <tr key={user.id}>
                                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.name}</td>
                                 <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
