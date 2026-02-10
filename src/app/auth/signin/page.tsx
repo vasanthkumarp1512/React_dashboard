@@ -36,7 +36,17 @@ function SignInForm() {
             });
 
             if (res?.error) {
-                setError(res.error);
+                // Map common NextAuth error codes to user-friendly messages
+                let errorMessage = res.error;
+                if (res.error === "CredentialsSignin") {
+                    errorMessage = "Invalid email or password";
+                } else if (res.error === "Your account is pending approval.") {
+                    errorMessage = "Your account is pending approval by an admin.";
+                } else if (res.error === "Your account has been rejected.") {
+                    errorMessage = "Your account has been rejected. Please contact support.";
+                }
+
+                setError(errorMessage);
                 setLoading(false);
             } else {
                 router.push("/dashboard");
