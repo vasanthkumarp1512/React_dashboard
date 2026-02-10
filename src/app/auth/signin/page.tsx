@@ -29,11 +29,14 @@ function SignInForm() {
         const password = formData.get("password") as string;
 
         try {
+            console.log("Attempting sign in...");
             const res = await signIn("credentials", {
                 email,
                 password,
                 redirect: false,
             });
+
+            console.log("Sign in response:", res);
 
             if (res?.error) {
                 // Map common NextAuth error codes to user-friendly messages
@@ -48,10 +51,17 @@ function SignInForm() {
 
                 setError(errorMessage);
                 setLoading(false);
-            } else {
+            } else if (res?.ok) {
+                console.log("Sign in successful, redirecting...");
                 router.push("/dashboard");
+                // We keep loading true while redirecting to avoid flickering 
+                // but if it stays too long, maybe we should stop it.
+            } else {
+                setError("Sign in failed. Please try again.");
+                setLoading(false);
             }
         } catch (err) {
+            console.error("Sign in error:", err);
             setError("An unexpected error occurred");
             setLoading(false);
         }
