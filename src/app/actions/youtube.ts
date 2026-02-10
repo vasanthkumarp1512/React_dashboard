@@ -1,7 +1,32 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { YoutubeTranscript } from "youtube-transcript";
+import { Innertube, UniversalCache } from "youtubei.js";
+
+// Initialize YouTube clients lazily
+let youtube: Innertube | null = null;
+let youtubeAndroid: Innertube | null = null;
+
+async function getYoutubeClient(type: "WEB" | "ANDROID" = "WEB") {
+    if (type === "ANDROID") {
+        if (!youtubeAndroid) {
+            youtubeAndroid = await Innertube.create({
+                cache: new UniversalCache(false),
+                generate_session_locally: true,
+                client_type: "ANDROID",
+            });
+        }
+        return youtubeAndroid;
+    }
+
+    if (!youtube) {
+        youtube = await Innertube.create({
+            cache: new UniversalCache(false),
+            generate_session_locally: true,
+        });
+    }
+    return youtube;
+}
 
 function extractVideoId(url: string): string | null {
     const patterns = [
@@ -30,19 +55,88 @@ export async function summarizeVideo(url: string) {
         return { error: "AI service is not configured. Please contact the administrator." };
     }
 
-    // Step 1: Fetch transcript
-    let transcriptText: string;
+    // Step 1: Fetch transcript with retries
+    let transcriptText: string = "";
+    let fetchError: string = "";
+
     try {
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-        if (!transcript || transcript.length === 0) {
-            return { error: "No transcript available for this video. The video may not have captions enabled." };
+        // Strategy 1: Default Web Client
+        try {
+            console.log("Strategy 1: Fetching with WEB client...");
+            const yt = await getYoutubeClient("WEB");
+            const info = await yt.getInfo(videoId);
+            const transcriptData = await info.getTranscript();
+
+            if (transcriptData && transcriptData.transcript) {
+                transcriptText = transcriptData.transcript.content?.body?.initial_segments
+                    .map(segment => segment.snippet.text)
+                    .join(" ") ?? "";
+            }
+        } catch (err) {
+            console.log("Web client failed, trying Android...");
         }
-        transcriptText = transcript.map((entry) => entry.text).join(" ");
+
+        // Strategy 2: Android Client (fallback)
+        if (!transcriptText) {
+            try {
+                console.log("Strategy 2: Fetching with ANDROID client...");
+                const ytAndroid = await getYoutubeClient("ANDROID");
+                const info = await ytAndroid.getInfo(videoId);
+                const transcriptData = await info.getTranscript();
+
+                if (transcriptData && transcriptData.transcript) {
+                    transcriptText = transcriptData.transcript.content?.body?.initial_segments
+                        .map(segment => segment.snippet.text)
+                        .join(" ") ?? "";
+                }
+            } catch (err) {
+                console.log("Android client failed...");
+            }
+        }
+
+        // Strategy 3: Manual Fallback (ytInitialPlayerResponse)
+        if (!transcriptText) {
+            console.log("Strategy 3: Manual extraction...");
+            const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            const response = await fetch(watchUrl, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+            });
+            const html = await response.text();
+
+            // Try to find the caption tracks in the HTML
+            const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
+            if (captionMatch) {
+                const tracks = JSON.parse(captionMatch[1]);
+                const track = tracks.find((t: any) => t.languageCode === 'en') || tracks[0];
+                if (track && track.baseUrl) {
+                    const transcriptResp = await fetch(track.baseUrl);
+                    const xml = await transcriptResp.text();
+                    transcriptText = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+                }
+            }
+        }
+
+        if (!transcriptText || transcriptText.trim().length < 50) {
+            throw new Error("Transcript empty or too short");
+        }
+
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown error";
         console.error("Transcript fetch error:", message);
+        fetchError = message;
+    }
+
+    if (!transcriptText) {
+        if (fetchError.includes("No transcript") || fetchError.includes("empty")) {
+            return {
+                error: "This video doesn't have captions/subtitles available. Please try a different video.",
+            };
+        }
         return {
-            error: "Could not fetch the video transcript. Make sure the video has captions/subtitles enabled.",
+            error: "Could not fetch the video transcript. It might be age-restricted or disabled. Try a different video.",
         };
     }
 
