@@ -2,10 +2,13 @@
 
 import { useState, useRef } from "react";
 import { summarizeVideo } from "@/app/actions/youtube";
-import { Sparkles, Youtube, Copy, Download, Loader2, AlertCircle, BookOpen, CheckCircle2 } from "lucide-react";
+import { generateStudyNotes } from "@/app/actions/generate-notes";
+import { Sparkles, Youtube, Copy, Download, Loader2, AlertCircle, BookOpen, CheckCircle2, AlignLeft } from "lucide-react";
 
 export default function AIToolsPage() {
+    const [mode, setMode] = useState<"youtube" | "manual">("youtube");
     const [url, setUrl] = useState("");
+    const [manualText, setManualText] = useState("");
     const [notes, setNotes] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -15,23 +18,48 @@ export default function AIToolsPage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!url.trim()) return;
 
         setLoading(true);
         setError(null);
         setNotes(null);
         setVideoId(null);
+        setCopied(false);
 
-        const result = await summarizeVideo(url);
+        try {
+            if (mode === "youtube") {
+                if (!url.trim()) {
+                    setLoading(false);
+                    return;
+                }
 
-        if (result.error) {
-            setError(result.error);
-        } else if (result.success && result.notes) {
-            setNotes(result.notes);
-            setVideoId(result.videoId ?? null);
+                const result = await summarizeVideo(url);
+
+                if (result.error) {
+                    setError(result.error);
+                } else if (result.success && result.notes) {
+                    setNotes(result.notes);
+                    setVideoId(result.videoId ?? null);
+                }
+            } else {
+                if (!manualText.trim() || manualText.length < 50) {
+                    setError("Please enter enough text (at least 50 characters).");
+                    setLoading(false);
+                    return;
+                }
+
+                const result = await generateStudyNotes(manualText);
+
+                if (result.error) {
+                    setError(result.error);
+                } else if (result.success && result.notes) {
+                    setNotes(result.notes);
+                }
+            }
+        } catch (err) {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     }
 
     function handleCopy() {
@@ -66,40 +94,81 @@ export default function AIToolsPage() {
                     </div>
                     <h1 className="text-3xl font-bold text-gray-900">AI Study Notes</h1>
                 </div>
-                <p className="text-gray-500 ml-14">Paste a YouTube video link and let AI generate comprehensive study notes for you.</p>
+                <p className="text-gray-500 ml-14">
+                    Generate comprehensive study notes from YouTube videos or text.
+                </p>
             </div>
 
             {/* Input Section */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                        <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500" />
-                        <input
-                            type="text"
-                            value={url}
-                            onChange={(e) => setUrl(e.target.value)}
-                            placeholder="Paste YouTube video URL here..."
-                            className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                            disabled={loading}
-                        />
-                    </div>
+                {/* Tabs */}
+                <div className="flex gap-4 border-b border-gray-100 pb-4 mb-6">
                     <button
-                        type="submit"
-                        disabled={loading || !url.trim()}
-                        className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 min-w-[180px] shadow-md hover:shadow-lg"
+                        onClick={() => { setMode("youtube"); setError(null); }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${mode === "youtube"
+                                ? "bg-indigo-50 text-indigo-700"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
                     >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                Generating...
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="w-5 h-5" />
-                                Generate Notes
-                            </>
-                        )}
+                        <Youtube className="w-5 h-5" />
+                        YouTube Video
                     </button>
+                    <button
+                        onClick={() => { setMode("manual"); setError(null); }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${mode === "manual"
+                                ? "bg-indigo-50 text-indigo-700"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                    >
+                        <AlignLeft className="w-5 h-5" />
+                        Paste Transcript/Text
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    {mode === "youtube" ? (
+                        <div className="relative">
+                            <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500" />
+                            <input
+                                type="url"
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                placeholder="Paste YouTube URL (e.g., https://youtube.com/watch?v=...)"
+                                className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                disabled={loading}
+                            />
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <textarea
+                                value={manualText}
+                                onChange={(e) => setManualText(e.target.value)}
+                                placeholder="Paste the video transcript or any study text here..."
+                                className="w-full p-4 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all min-h-[150px]"
+                                disabled={loading}
+                            />
+                        </div>
+                    )}
+
+                    <div className="flex justify-end">
+                        <button
+                            type="submit"
+                            disabled={loading || (mode === "youtube" && !url.trim()) || (mode === "manual" && !manualText.trim())}
+                            className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 min-w-[180px] shadow-md hover:shadow-lg"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className="w-5 h-5" />
+                                    Generate Notes
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </form>
             </div>
 
@@ -110,6 +179,14 @@ export default function AIToolsPage() {
                     <div>
                         <p className="text-red-700 font-medium text-sm">Something went wrong</p>
                         <p className="text-red-600 text-sm mt-1">{error}</p>
+                        {mode === "youtube" && (error.includes("captions") || error.includes("transcript") || error.includes("blocking")) && (
+                            <button
+                                onClick={() => setMode("manual")}
+                                className="text-sm underline mt-2 text-red-700 hover:text-red-900 font-medium"
+                            >
+                                Try pasting the transcript manually
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -120,13 +197,13 @@ export default function AIToolsPage() {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl mb-4">
                         <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Analyzing Video...</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Analyzing Content...</h3>
                     <p className="text-gray-500 text-sm max-w-md mx-auto">
-                        Fetching the transcript and generating study notes with AI. This may take 15-30 seconds.
+                        Processing the content and generating study notes with AI. This may take 15-30 seconds.
                     </p>
                     <div className="mt-6 flex items-center justify-center gap-8 text-xs text-gray-400">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Fetching transcript</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span> AI processing</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Processing input</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span> AI thinking</span>
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span> Formatting notes</span>
                     </div>
                 </div>
@@ -168,8 +245,8 @@ export default function AIToolsPage() {
                         </div>
                     </div>
 
-                    {/* Video Preview */}
-                    {videoId && (
+                    {/* Video Preview (Only in YouTube mode) */}
+                    {mode === "youtube" && videoId && (
                         <div className="px-6 pt-6">
                             <div className="aspect-video w-full max-w-2xl mx-auto rounded-xl overflow-hidden shadow-md">
                                 <iframe
@@ -207,7 +284,7 @@ export default function AIToolsPage() {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Learn</h3>
                     <p className="text-gray-500 text-sm max-w-md mx-auto">
-                        Paste any YouTube video URL above to generate comprehensive study notes powered by AI.
+                        Paste any YouTube video URL or transcript above to generate comprehensive study notes powered by AI.
                     </p>
                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto text-left">
                         <div className="bg-gray-50 p-4 rounded-xl">
