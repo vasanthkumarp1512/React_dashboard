@@ -6,23 +6,15 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-async function approveUser() {
+async function listUsers() {
     try {
-        const email = "himanidebnath76@gmail.com";
-        const result = await db.update(users)
-            .set({ status: "approved" })
-            .where(eq(users.email, email))
-            .returning();
-
-        if (result.length > 0) {
-            console.log("User approved successfully:", JSON.stringify(result[0], null, 2));
-        } else {
-            console.log("User not found or already approved");
-        }
+        const allUsers = await db.select().from(users);
+        console.log("Users and Statuses:");
+        allUsers.forEach(u => console.log(`${u.email} -> ${u.status}`));
     } catch (err) {
-        console.error("Error approving user:", err);
+        console.error("Error listing users:", err);
     }
     process.exit(0);
 }
 
-approveUser();
+listUsers();

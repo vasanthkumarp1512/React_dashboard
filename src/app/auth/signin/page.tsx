@@ -29,33 +29,28 @@ function SignInForm() {
         const password = formData.get("password") as string;
 
         try {
-            console.log("Attempting sign in...");
             const res = await signIn("credentials", {
                 email,
                 password,
                 redirect: false,
             });
 
-            console.log("Sign in response:", res);
-
             if (res?.error) {
                 // Map common NextAuth error codes to user-friendly messages
                 let errorMessage = res.error;
                 if (res.error === "CredentialsSignin") {
                     errorMessage = "Invalid email or password";
-                } else if (res.error === "Your account is pending approval.") {
+                } else if (res.error.includes("pending")) {
                     errorMessage = "Your account is pending approval by an admin.";
-                } else if (res.error === "Your account has been rejected.") {
+                } else if (res.error.includes("rejected")) {
                     errorMessage = "Your account has been rejected. Please contact support.";
                 }
 
                 setError(errorMessage);
                 setLoading(false);
             } else if (res?.ok) {
-                console.log("Sign in successful, redirecting...");
-                router.push("/dashboard");
-                // We keep loading true while redirecting to avoid flickering 
-                // but if it stays too long, maybe we should stop it.
+                // Use window.location for a full page reload to ensure the session cookie is sent
+                window.location.href = "/dashboard";
             } else {
                 setError("Sign in failed. Please try again.");
                 setLoading(false);
