@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
-import { LayoutDashboard, Users, LogOut, Shield } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Shield, Sparkles } from "lucide-react";
 
 export default async function DashboardLayout({
     children,
@@ -17,7 +17,7 @@ export default async function DashboardLayout({
             <div className="w-64 bg-white border-r border-gray-100 flex flex-col">
                 <div className="p-6">
                     <h2 className="text-xl font-bold text-indigo-600 flex items-center gap-2">
-                        < Shield className="w-6 h-6" />
+                        <Shield className="w-6 h-6" />
                         Dashboard
                     </h2>
                 </div>
@@ -28,6 +28,13 @@ export default async function DashboardLayout({
                     >
                         <LayoutDashboard className="w-5 h-5" />
                         Personal
+                    </Link>
+                    <Link
+                        href="/dashboard/ai-tools"
+                        className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                        <Sparkles className="w-5 h-5" />
+                        AI Study Notes
                     </Link>
                     {isAdmin && (
                         <Link
