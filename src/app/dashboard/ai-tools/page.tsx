@@ -33,6 +33,7 @@ export default function AIToolsPage() {
                 }
 
                 let clientTranscript: string | undefined;
+                const clientLogs: string[] = [];
 
                 // Extract video ID to try client-side fetch
                 const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
@@ -43,17 +44,21 @@ export default function AIToolsPage() {
                         console.log("Attempting client-side transcript fetch...");
                         // Dynamic import to avoid server-side issues if any
                         const { fetchTranscriptClient } = await import("@/lib/youtube-client");
-                        const fetched = await fetchTranscriptClient(videoId);
-                        if (fetched) {
+                        const { transcript, logs } = await fetchTranscriptClient(videoId);
+
+                        if (logs) clientLogs.push(...logs);
+
+                        if (transcript) {
                             console.log("Client-side fetch successful!");
-                            clientTranscript = fetched;
+                            clientTranscript = transcript;
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         console.warn("Client-side fetch error:", e);
+                        clientLogs.push(`[Client] Wrapper error: ${e.message}`);
                     }
                 }
 
-                const result = await summarizeVideo(url, clientTranscript);
+                const result = await summarizeVideo(url, clientTranscript, clientLogs);
 
                 if (result.error) {
                     // Attach debug logs to the error string object if possible, or handle state better

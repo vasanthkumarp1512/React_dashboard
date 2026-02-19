@@ -48,7 +48,7 @@ function extractVideoId(url: string): string | null {
     return null;
 }
 
-export async function summarizeVideo(url: string, manualTranscript?: string) {
+export async function summarizeVideo(url: string, manualTranscript?: string, clientLogs: string[] = []) {
     if (!process.env.GEMINI_API_KEY) {
         return { error: "Gemini API Key is missing. Please add it to your .env file." };
     }
@@ -61,10 +61,9 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
     }
 
     // Step 1: Fetch transcript (or use provided one)
-    // Step 1: Fetch transcript (or use provided one)
     let transcriptText: string = "";
     let fetchError: string = "";
-    const debugLogs: string[] = [];
+    const debugLogs: string[] = [...clientLogs]; // Start with client logs
 
     if (manualTranscript && manualTranscript.length > 50) {
         console.log("Using manual/client-side transcript...");

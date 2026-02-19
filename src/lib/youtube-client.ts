@@ -22,8 +22,9 @@ const INSTANCES = [
     { url: "https://yt.artemislena.eu", type: "invidious" }
 ];
 
-export async function fetchTranscriptClient(videoId: string): Promise<string | null> {
-    console.log(`[Client] Attempting to fetch transcript for ${videoId}...`);
+export async function fetchTranscriptClient(videoId: string): Promise<{ transcript: string | null; logs: string[] }> {
+    const logs: string[] = [];
+    logs.push(`[Client] Starting fetch for ${videoId}...`);
 
     for (const instance of INSTANCES) {
         try {
@@ -38,7 +39,10 @@ export async function fetchTranscriptClient(videoId: string): Promise<string | n
                 });
                 clearTimeout(timeoutId);
 
-                if (!response.ok) continue;
+                if (!response.ok) {
+                    logs.push(`[Client] ${instance.url} failed: ${response.status}`);
+                    continue;
+                }
 
                 const data = await response.json();
                 if (data.subtitles && data.subtitles.length > 0) {
@@ -51,6 +55,8 @@ export async function fetchTranscriptClient(videoId: string): Promise<string | n
                         const vtt = await subRes.text();
                         transcriptText = cleanVTT(vtt);
                     }
+                } else {
+                    logs.push(`[Client] ${instance.url}: No subtitles found.`);
                 }
 
             } else if (instance.type === "invidious") {
@@ -59,7 +65,10 @@ export async function fetchTranscriptClient(videoId: string): Promise<string | n
                 });
                 clearTimeout(timeoutId);
 
-                if (!response.ok) continue;
+                if (!response.ok) {
+                    logs.push(`[Client] ${instance.url} failed: ${response.status}`);
+                    continue;
+                }
 
                 const data = await response.json();
                 if (data.captions && data.captions.length > 0) {
@@ -72,21 +81,23 @@ export async function fetchTranscriptClient(videoId: string): Promise<string | n
                         const vtt = await subRes.text();
                         transcriptText = cleanVTT(vtt);
                     }
+                } else {
+                    logs.push(`[Client] ${instance.url}: No captions found.`);
                 }
             }
 
             if (transcriptText && transcriptText.length > 50) {
-                console.log(`[Client] Successfully fetched from ${instance.url} (${instance.type})`);
-                return transcriptText;
+                logs.push(`[Client] Success from ${instance.url}`);
+                return { transcript: transcriptText, logs };
             }
 
-        } catch (err) {
-            // console.warn(`[Client] Failed ${instance.url}`);
+        } catch (err: any) {
+            logs.push(`[Client] ${instance.url} error: ${err.message}`);
         }
     }
 
-    console.log("[Client] All instances failed.");
-    return null;
+    logs.push("[Client] All instances failed.");
+    return { transcript: null, logs };
 }
 
 export function cleanVTT(vtt: string): string {
