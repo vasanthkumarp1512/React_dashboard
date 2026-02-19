@@ -131,7 +131,15 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                     console.log("Strategy 0.6: Fetching with @distube/ytdl-core...");
                     // Use dynamic import safely
                     const { getInfo } = await import('@distube/ytdl-core');
-                    const info = await getInfo(`https://www.youtube.com/watch?v=${videoId}`);
+
+                    const requestOptions: any = {};
+                    if (process.env.YOUTUBE_COOKIES) {
+                        requestOptions.headers = {
+                            cookie: process.env.YOUTUBE_COOKIES
+                        };
+                    }
+
+                    const info = await getInfo(`https://www.youtube.com/watch?v=${videoId}`, { requestOptions });
                     const captions = info.player_response?.captions;
 
                     if (captions) {
