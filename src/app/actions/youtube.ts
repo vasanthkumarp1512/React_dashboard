@@ -18,22 +18,32 @@ async function getYoutubeClient(type: "WEB" | "ANDROID" | "TV_EMBEDDED" = "WEB")
 
     if (type === "ANDROID") {
         if (!youtubeAndroid) {
-            youtubeAndroid = await Innertube.create({
-                cache: new UniversalCache(false),
-                generate_session_locally: true,
-                client_type: "ANDROID" as any,
-            });
+            try {
+                youtubeAndroid = await Innertube.create({
+                    cache: new UniversalCache(false),
+                    generate_session_locally: false,
+                    client_type: "ANDROID" as any,
+                });
+            } catch (e) {
+                console.error("Failed to initialize Android client:", e);
+                return null;
+            }
         }
         return youtubeAndroid;
     }
 
     if (type === "TV_EMBEDDED") {
         if (!youtubeTV) {
-            youtubeTV = await Innertube.create({
-                cache: new UniversalCache(false),
-                generate_session_locally: true,
-                client_type: "TV_EMBEDDED" as any,
-            });
+            try {
+                youtubeTV = await Innertube.create({
+                    cache: new UniversalCache(false),
+                    generate_session_locally: true,
+                    client_type: "TV_EMBEDDED" as any,
+                });
+            } catch (e) {
+                console.error("Failed to initialize TV client:", e);
+                return null;
+            }
         }
         return youtubeTV;
     }
@@ -94,7 +104,7 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                     const { YoutubeTranscript } = await import('youtube-transcript');
                     const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
                     if (transcriptItems && transcriptItems.length > 0) {
-                        transcriptText = transcriptItems.map(item => item.text).join(' ');
+                        transcriptText = transcriptItems.map((item: any) => item.text).join(' ');
                         if (transcriptText.length > 50) {
                             debugLogs.push("Strategy 0.5 (youtube-transcript) success.");
                         }
@@ -102,6 +112,10 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                 } catch (e: any) {
                     console.log("youtube-transcript lib failed:", e.message);
                     debugLogs.push(`Strategy 0.5 (youtube-transcript) failed: ${e.message}`);
+
+                    if (e.message && e.message.includes("Transcript is disabled")) {
+                        fetchError = "Captions are disabled on this video.";
+                    }
                 }
             }
 
@@ -110,14 +124,16 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                 try {
                     console.log("Strategy 1: Fetching with WEB client...");
                     const yt = await getYoutubeClient("WEB");
-                    const info = await yt.getInfo(videoId);
-                    const transcriptData = await info.getTranscript();
+                    if (yt) {
+                        const info = await yt.getInfo(videoId);
+                        const transcriptData = await info.getTranscript();
 
-                    if (transcriptData && transcriptData.transcript) {
-                        transcriptText = transcriptData.transcript.content?.body?.initial_segments
-                            .map((segment: any) => segment.snippet.text)
-                            .join(" ") ?? "";
-                        if (transcriptText) debugLogs.push("Strategy 1 (Web) success.");
+                        if (transcriptData && transcriptData.transcript) {
+                            transcriptText = transcriptData.transcript.content?.body?.initial_segments
+                                .map((segment: any) => segment.snippet.text)
+                                .join(" ") ?? "";
+                            if (transcriptText) debugLogs.push("Strategy 1 (Web) success.");
+                        }
                     }
                 } catch (err: any) {
                     console.log("Web client failed:", err.message);
@@ -130,14 +146,16 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                 try {
                     console.log("Strategy 1.5: Fetching with TV_EMBEDDED client...");
                     const ytTV = await getYoutubeClient("TV_EMBEDDED");
-                    const info = await ytTV.getInfo(videoId);
-                    const transcriptData = await info.getTranscript();
+                    if (ytTV) {
+                        const info = await ytTV.getInfo(videoId);
+                        const transcriptData = await info.getTranscript();
 
-                    if (transcriptData && transcriptData.transcript) {
-                        transcriptText = transcriptData.transcript.content?.body?.initial_segments
-                            .map((segment: any) => segment.snippet.text)
-                            .join(" ") ?? "";
-                        if (transcriptText) debugLogs.push("Strategy 1.5 (TV_EMBEDDED) success.");
+                        if (transcriptData && transcriptData.transcript) {
+                            transcriptText = transcriptData.transcript.content?.body?.initial_segments
+                                .map((segment: any) => segment.snippet.text)
+                                .join(" ") ?? "";
+                            if (transcriptText) debugLogs.push("Strategy 1.5 (TV_EMBEDDED) success.");
+                        }
                     }
                 } catch (err: any) {
                     console.log("TV_EMBEDDED client failed:", err.message);
@@ -150,14 +168,16 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                 try {
                     console.log("Strategy 2: Fetching with ANDROID client...");
                     const ytAndroid = await getYoutubeClient("ANDROID");
-                    const info = await ytAndroid.getInfo(videoId);
-                    const transcriptData = await info.getTranscript();
+                    if (ytAndroid) {
+                        const info = await ytAndroid.getInfo(videoId);
+                        const transcriptData = await info.getTranscript();
 
-                    if (transcriptData && transcriptData.transcript) {
-                        transcriptText = transcriptData.transcript.content?.body?.initial_segments
-                            .map((segment: any) => segment.snippet.text)
-                            .join(" ") ?? "";
-                        if (transcriptText) debugLogs.push("Strategy 2 (Android) success.");
+                        if (transcriptData && transcriptData.transcript) {
+                            transcriptText = transcriptData.transcript.content?.body?.initial_segments
+                                .map((segment: any) => segment.snippet.text)
+                                .join(" ") ?? "";
+                            if (transcriptText) debugLogs.push("Strategy 2 (Android) success.");
+                        }
                     }
                 } catch (err: any) {
                     console.log("Android client failed:", err.message);
@@ -309,8 +329,10 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
 
     if (!transcriptText) {
         // Return a more helpful error message
+        const finalError = fetchError || "We couldn't fetch the transcript for this video. Use the 'Paste Transcript' tab to paste it manually.";
+
         return {
-            error: "We couldn't fetch the transcript for this video. Use the 'Paste Transcript' tab to paste it manually.",
+            error: finalError,
             debugLogs // Return logs for client-side debugging/display
         };
     }
