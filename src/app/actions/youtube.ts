@@ -316,13 +316,16 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
 
 
             if (!transcriptText || transcriptText.trim().length < 50) {
+                if (fetchError && fetchError.includes("disabled")) {
+                    throw new Error(fetchError);
+                }
                 throw new Error("Transcript empty or too short");
             }
 
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Unknown error";
             console.error("Transcript fetch error:", message);
-            fetchError = message;
+            if (!fetchError) fetchError = message;
             debugLogs.push(`Final Error: ${message}`);
         }
     }
