@@ -1,5 +1,5 @@
 
-const fetch = require('node-fetch');
+export { };
 
 const VIDEO_ID = "jNQXAC9IVRw"; // Me at the zoo
 
