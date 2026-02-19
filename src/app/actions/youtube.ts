@@ -10,8 +10,12 @@ const execAsync = promisify(exec);
 // Initialize YouTube clients lazily
 let youtube: Innertube | null = null;
 let youtubeAndroid: Innertube | null = null;
+let youtubeTV: Innertube | null = null;
 
-async function getYoutubeClient(type: "WEB" | "ANDROID" = "WEB") {
+async function getYoutubeClient(type: "WEB" | "ANDROID" | "TV_EMBEDDED" = "WEB") {
+    // Dynamic import to avoid build issues
+    const { Innertube, UniversalCache } = await import("youtubei.js");
+
     if (type === "ANDROID") {
         if (!youtubeAndroid) {
             youtubeAndroid = await Innertube.create({
@@ -21,6 +25,17 @@ async function getYoutubeClient(type: "WEB" | "ANDROID" = "WEB") {
             });
         }
         return youtubeAndroid;
+    }
+
+    if (type === "TV_EMBEDDED") {
+        if (!youtubeTV) {
+            youtubeTV = await Innertube.create({
+                cache: new UniversalCache(false),
+                generate_session_locally: true,
+                client_type: "TV_EMBEDDED" as any,
+            });
+        }
+        return youtubeTV;
     }
 
     if (!youtube) {
@@ -91,6 +106,26 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                 }
             }
 
+            // Strategy 1.5: TV_EMBEDDED Client (Authentication bypass)
+            if (!transcriptText) {
+                try {
+                    console.log("Strategy 1.5: Fetching with TV_EMBEDDED client...");
+                    const ytTV = await getYoutubeClient("TV_EMBEDDED");
+                    const info = await ytTV.getInfo(videoId);
+                    const transcriptData = await info.getTranscript();
+
+                    if (transcriptData && transcriptData.transcript) {
+                        transcriptText = transcriptData.transcript.content?.body?.initial_segments
+                            .map((segment: any) => segment.snippet.text)
+                            .join(" ") ?? "";
+                        if (transcriptText) debugLogs.push("Strategy 1.5 (TV_EMBEDDED) success.");
+                    }
+                } catch (err: any) {
+                    console.log("TV_EMBEDDED client failed:", err.message);
+                    debugLogs.push(`Strategy 1.5 (TV_EMBEDDED) failed: ${err.message}`);
+                }
+            }
+
             // Strategy 2: Android Client (fallback)
             if (!transcriptText) {
                 try {
@@ -101,13 +136,15 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
 
                     if (transcriptData && transcriptData.transcript) {
                         transcriptText = transcriptData.transcript.content?.body?.initial_segments
-                            .map(segment => segment.snippet.text)
+                            .map((segment: any) => segment.snippet.text)
                             .join(" ") ?? "";
                         if (transcriptText) debugLogs.push("Strategy 2 (Android) success.");
                     }
                 } catch (err: any) {
                     console.log("Android client failed:", err.message);
-                    debugLogs.push(`Strategy 2 (Android) failed: ${err.message}`);
+                    // Handle cryptic "Cannot read properties of null" errors safely
+                    const errorMsg = err.message || "Unknown error";
+                    debugLogs.push(`Strategy 2 (Android) failed: ${errorMsg}`);
                 }
             }
 

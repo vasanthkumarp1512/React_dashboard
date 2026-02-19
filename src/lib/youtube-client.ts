@@ -1,8 +1,7 @@
-
 // List of CORS-enabled Piped instances
 // Robust list of Piped and Invidious instances
 const INSTANCES = [
-    // Piped Instances (High Reliability)
+    // Reliable instances that often support CORS
     { url: "https://pipedapi.kavin.rocks", type: "piped" },
     { url: "https://api.piped.privacy.com.de", type: "piped" },
     { url: "https://pipedapi.adminforge.de", type: "piped" },
@@ -11,15 +10,16 @@ const INSTANCES = [
     { url: "https://pipedapi.moomoo.me", type: "piped" },
     { url: "https://pipedapi.smnz.de", type: "piped" },
     { url: "https://pipedapi.ducks.party", type: "piped" },
-
-    // Invidious Instances (Fallback)
     { url: "https://inv.tux.pizza", type: "invidious" },
     { url: "https://invidious.flokinet.to", type: "invidious" },
     { url: "https://invidious.privacydev.net", type: "invidious" },
     { url: "https://vid.puffyan.us", type: "invidious" },
     { url: "https://invidious.fdn.fr", type: "invidious" },
     { url: "https://invidious.perennialteks.com", type: "invidious" },
-    { url: "https://yt.artemislena.eu", type: "invidious" }
+    { url: "https://yt.artemislena.eu", type: "invidious" },
+    { url: "https://invidious.protokolla.fi", type: "invidious" },
+    { url: "https://invidious.drgns.space", type: "invidious" },
+    { url: "https://iv.ggtyler.dev", type: "invidious" },
 ];
 
 export async function fetchTranscriptClient(videoId: string): Promise<{ transcript: string | null; logs: string[] }> {
@@ -29,7 +29,7 @@ export async function fetchTranscriptClient(videoId: string): Promise<{ transcri
     for (const instance of INSTANCES) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
             let transcriptText: string | null = null;
 
