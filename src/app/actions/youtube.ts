@@ -61,29 +61,20 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
     }
 
     // Step 1: Fetch transcript (or use provided one)
+    // Step 1: Fetch transcript (or use provided one)
     let transcriptText: string = "";
     let fetchError: string = "";
+    const debugLogs: string[] = [];
 
     if (manualTranscript && manualTranscript.length > 50) {
         console.log("Using manual/client-side transcript...");
+        debugLogs.push("Using client-side transcript.");
         transcriptText = manualTranscript;
     } else {
         try {
-            try {
-                // Strategy 0: Python Fallback (Most Robust)
-                console.log("Strategy 0: Python Native Client...");
-                const { stdout } = await execAsync(`python scripts/fetch_transcript.py ${videoId}`);
-                if (stdout && stdout.trim().length > 50) {
-                    transcriptText = stdout.trim();
-                    console.log("Python strategy successful!");
-                }
-            } catch (pyErr) {
-                console.log("Python strategy failed, falling back...");
-            }
-
+            // Strategy 1: Default Web Client
             if (!transcriptText) {
                 try {
-                    // Strategy 1: Default Web Client
                     console.log("Strategy 1: Fetching with WEB client...");
                     const yt = await getYoutubeClient("WEB");
                     const info = await yt.getInfo(videoId);
@@ -93,9 +84,11 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                         transcriptText = transcriptData.transcript.content?.body?.initial_segments
                             .map((segment: any) => segment.snippet.text)
                             .join(" ") ?? "";
+                        if (transcriptText) debugLogs.push("Strategy 1 (Web) success.");
                     }
-                } catch (err) {
-                    console.log("Web client failed, trying Android...");
+                } catch (err: any) {
+                    console.log("Web client failed:", err.message);
+                    debugLogs.push(`Strategy 1 (Web) failed: ${err.message}`);
                 }
             }
 
@@ -111,9 +104,11 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                         transcriptText = transcriptData.transcript.content?.body?.initial_segments
                             .map(segment => segment.snippet.text)
                             .join(" ") ?? "";
+                        if (transcriptText) debugLogs.push("Strategy 2 (Android) success.");
                     }
-                } catch (err) {
-                    console.log("Android client failed...");
+                } catch (err: any) {
+                    console.log("Android client failed:", err.message);
+                    debugLogs.push(`Strategy 2 (Android) failed: ${err.message}`);
                 }
             }
 
@@ -128,7 +123,7 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                     };
 
                     if (process.env.YOUTUBE_COOKIES) {
-                        console.log("Using provided YouTube cookies for authentication...");
+                        console.log("Using provided YouTube cookies...");
                         headers["Cookie"] = process.env.YOUTUBE_COOKIES;
                     }
 
@@ -139,29 +134,31 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                     if (captionMatch) {
                         try {
                             const tracks = JSON.parse(captionMatch[1]);
-                            // Prioritize English, but take the first available if not found
                             const track = tracks.find((t: any) => t.languageCode === 'en' || t.languageCode.startsWith('en')) || tracks[0];
 
                             if (track && track.baseUrl) {
-                                console.log(`Fetching manual transcript from track: ${track.name?.simpleText} (${track.languageCode})`);
+                                console.log(`Fetching manual transcript from track: ${track.name?.simpleText}`);
                                 const transcriptResp = await fetch(track.baseUrl);
                                 const xml = await transcriptResp.text();
 
-                                // Simple but effective XML parsing for YouTube transcripts
                                 transcriptText = xml.replace(/<[^>]+>/g, " ")
                                     .replace(/&amp;#39;/g, "'")
                                     .replace(/&amp;quot;/g, '"')
                                     .replace(/\s+/g, " ")
                                     .trim();
+                                if (transcriptText) debugLogs.push("Strategy 3 (Manual) success.");
                             }
-                        } catch (e) {
+                        } catch (e: any) {
                             console.error("Failed to parse captionTracks JSON:", e);
+                            debugLogs.push(`Strategy 3 (Manual) JSON parse error: ${e.message}`);
                         }
                     } else {
                         console.log("No captionTracks found in HTML.");
+                        debugLogs.push("Strategy 3 (Manual) failed: No captionTracks found.");
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.error("Manual strategy failed:", e);
+                    debugLogs.push(`Strategy 3 (Manual) failed: ${e.message}`);
                 }
             }
 
@@ -198,7 +195,6 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                                 if (track) {
                                     const subResponse = await fetch(track.url);
                                     let vtt = await subResponse.text();
-                                    // Cleanup VTT
                                     vtt = vtt.replace(/WEBVTT/g, "")
                                         .replace(/(\d{2}:)?\d{2}:\d{2}\.\d{3} --> (\d{2}:)?\d{2}:\d{2}\.\d{3}.*/g, "")
                                         .replace(/<[^>]+>/g, "")
@@ -206,7 +202,8 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                                         .trim();
                                     transcriptText = vtt;
                                     if (transcriptText.length > 50) {
-                                        console.log(` fetched from ${instance.url}`);
+                                        console.log(`Fetched from ${instance.url}`);
+                                        debugLogs.push(`Strategy 4 (Piped/Invidious) success: ${instance.url}`);
                                         break;
                                     }
                                 }
@@ -221,7 +218,6 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                                 if (track) {
                                     const subResponse = await fetch(`${instance.url}${track.url}`);
                                     let vtt = await subResponse.text();
-                                    // Cleanup VTT
                                     vtt = vtt.replace(/WEBVTT/g, "")
                                         .replace(/(\d{2}:)?\d{2}:\d{2}\.\d{3} --> (\d{2}:)?\d{2}:\d{2}\.\d{3}.*/g, "")
                                         .replace(/<[^>]+>/g, "")
@@ -229,7 +225,8 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                                         .trim();
                                     transcriptText = vtt;
                                     if (transcriptText.length > 50) {
-                                        console.log(` fetched from ${instance.url}`);
+                                        console.log(`Fetched from ${instance.url}`);
+                                        debugLogs.push(`Strategy 4 (Piped/Invidious) success: ${instance.url}`);
                                         break;
                                     }
                                 }
@@ -239,6 +236,7 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                         // ignore
                     }
                 }
+                if (!transcriptText) debugLogs.push("Strategy 4 (Third-party) failed: All instances failed.");
             }
 
 
@@ -250,6 +248,7 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
             const message = err instanceof Error ? err.message : "Unknown error";
             console.error("Transcript fetch error:", message);
             fetchError = message;
+            debugLogs.push(`Final Error: ${message}`);
         }
     }
 
@@ -257,6 +256,7 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
         // Return a more helpful error message
         return {
             error: "We couldn't fetch the transcript for this video. Use the 'Paste Transcript' tab to paste it manually.",
+            debugLogs // Return logs for client-side debugging/display
         };
     }
 

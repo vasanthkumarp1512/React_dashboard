@@ -56,7 +56,12 @@ export default function AIToolsPage() {
                 const result = await summarizeVideo(url, clientTranscript);
 
                 if (result.error) {
-                    setError(result.error);
+                    // Attach debug logs to the error string object if possible, or handle state better
+                    // For simplicity, we'll store the object in a way the UI can read,
+                    // or just append logs to the error message if we can't change state type easily.
+                    const errorObj: any = new String(result.error);
+                    errorObj.debugLogs = result.debugLogs;
+                    setError(errorObj);
                 } else if (result.success && result.notes) {
                     setNotes(result.notes);
                     setVideoId(result.videoId ?? null);
@@ -195,20 +200,34 @@ export default function AIToolsPage() {
 
             {/* Error */}
             {error && (
-                <div className="bg-red-50 border border-red-100 rounded-2xl p-5 mb-6 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                    <div>
-                        <p className="text-red-700 font-medium text-sm">Something went wrong</p>
-                        <p className="text-red-600 text-sm mt-1">{error}</p>
-                        {mode === "youtube" && (error.includes("captions") || error.includes("transcript") || error.includes("blocking")) && (
-                            <button
-                                onClick={() => setMode("manual")}
-                                className="text-sm underline mt-2 text-red-700 hover:text-red-900 font-medium"
-                            >
-                                Try pasting the transcript manually
-                            </button>
-                        )}
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-5 mb-6 flex flex-col gap-3">
+                    <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                        <div>
+                            <p className="text-red-700 font-medium text-sm">Something went wrong</p>
+                            <p className="text-red-600 text-sm mt-1">{error}</p>
+                            {mode === "youtube" && (error.includes("captions") || error.includes("transcript") || error.includes("blocking")) && (
+                                <button
+                                    onClick={() => setMode("manual")}
+                                    className="text-sm underline mt-2 text-red-700 hover:text-red-900 font-medium"
+                                >
+                                    Try pasting the transcript manually
+                                </button>
+                            )}
+                        </div>
                     </div>
+
+                    {/* Debug Logs Display */}
+                    {(error as any).debugLogs && (
+                        <div className="mt-2 p-3 bg-red-100/50 rounded-lg border border-red-200 text-xs font-mono text-red-800 overflow-x-auto">
+                            <p className="font-semibold mb-1">Debug Info (Share this if the issue persists):</p>
+                            <ul className="list-disc pl-4 space-y-1">
+                                {(error as any).debugLogs.map((log: string, i: number) => (
+                                    <li key={i}>{log}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             )}
 
