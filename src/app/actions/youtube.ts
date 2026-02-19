@@ -120,8 +120,51 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
                     debugLogs.push(`Strategy 0.5 (youtube-transcript) failed: ${e.message}`);
 
                     if (e.message && e.message.includes("Transcript is disabled")) {
+                        console.log("Strategy 0.5 claims disabled, but we will try others.");
+                    }
+                }
+            }
+
+            // Strategy 0.6: @distube/ytdl-core (Robust Fallback)
+            if (!transcriptText) {
+                try {
+                    console.log("Strategy 0.6: Fetching with @distube/ytdl-core...");
+                    // Use dynamic import safely
+                    const { getInfo } = await import('@distube/ytdl-core');
+                    const info = await getInfo(`https://www.youtube.com/watch?v=${videoId}`);
+                    const captions = info.player_response?.captions;
+
+                    if (captions) {
+                        const tracks = captions.playerCaptionsTracklistRenderer?.captionTracks;
+                        if (tracks && tracks.length > 0) {
+                            // Prefer English
+                            const track = tracks.find((t: any) => t.languageCode === 'en' || t.languageCode.startsWith('en')) || tracks[0];
+                            if (track && track.baseUrl) {
+                                console.log(`Strategy 0.6 found track: ${track.name.simpleText}`);
+                                const transcriptResp = await fetch(track.baseUrl);
+                                const xml = await transcriptResp.text();
+
+                                // Parse XML (Reuse simple regex logic)
+                                transcriptText = xml.replace(/<[^>]+>/g, " ")
+                                    .replace(/&amp;#39;/g, "'")
+                                    .replace(/&amp;quot;/g, '"')
+                                    .replace(/\s+/g, " ")
+                                    .trim();
+
+                                if (transcriptText.length > 50) {
+                                    debugLogs.push("Strategy 0.6 (@distube/ytdl-core) success.");
+                                    fetchError = ""; // Clear any previous errors
+                                }
+                            }
+                        }
+                    } else {
+                        debugLogs.push("Strategy 0.6 (@distube/ytdl-core) failed: No captions found.");
+                        // If this robust library says no captions, it's likely true.
                         fetchError = "Captions are disabled on this video.";
                     }
+                } catch (e: any) {
+                    console.log("@distube/ytdl-core failed:", e.message);
+                    debugLogs.push(`Strategy 0.6 (@distube/ytdl-core) failed: ${e.message}`);
                 }
             }
 
