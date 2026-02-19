@@ -35,7 +35,7 @@ async function test() {
         const youtubeAndroid = await Innertube.create({
             cache: new UniversalCache(false),
             generate_session_locally: true,
-            client_type: "ANDROID",
+            client_type: "ANDROID" as any,
         });
 
         try {
