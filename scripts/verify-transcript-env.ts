@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Innertube, UniversalCache } from "youtubei.js";
 
+export { };
 const VIDEO_ID = "jNQXAC9IVRw"; // "Me at the zoo"
 const LOG_FILE = path.resolve(process.cwd(), 'verification_log.txt');
 

@@ -1,4 +1,5 @@
 
+export { };
 const { YoutubeTranscript } = require('youtube-transcript');
 
 const VIDEO_ID = "jNQXAC9IVRw"; // Me at the zoo

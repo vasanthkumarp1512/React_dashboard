@@ -1,4 +1,5 @@
 
+export { };
 const VIDEO_ID = "jNQXAC9IVRw";
 
 const INVIDIOUS_INSTANCES = [

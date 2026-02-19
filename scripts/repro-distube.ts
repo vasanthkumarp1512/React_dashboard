@@ -1,4 +1,5 @@
 
+export { };
 const { getInfo } = require('@distube/ytdl-core');
 
 const VIDEO_ID = "jNQXAC9IVRw"; // Me at the zoo

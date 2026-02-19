@@ -1,4 +1,5 @@
 
+export { };
 const puppeteer = require('puppeteer');
 
 const VIDEO_ID = "jNQXAC9IVRw"; // Me at the zoo

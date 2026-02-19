@@ -1,4 +1,5 @@
 
+export { };
 const VIDEO_ID = "jNQXAC9IVRw"; // "Me at the zoo" - Guaranteed to have captions
 
 const PIPED_INSTANCES = [

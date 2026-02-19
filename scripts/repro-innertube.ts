@@ -1,4 +1,5 @@
 
+export { };
 const { Innertube, UniversalCache } = require('youtubei.js');
 
 const VIDEO_ID = "jNQXAC9IVRw"; // Me at the zoo

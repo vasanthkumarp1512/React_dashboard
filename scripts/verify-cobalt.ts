@@ -1,4 +1,5 @@
 
+export { };
 const VIDEO_ID = "jNQXAC9IVRw";
 
 // Cobalt instances (public)
