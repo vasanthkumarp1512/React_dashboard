@@ -12,11 +12,11 @@ async function main() {
         const json = await listResp.json();
 
         // Filter for valid instances with CORS and API enabled
-        const instances = json.filter(i =>
+        const instances = (json as any[]).filter((i: any) =>
             i[1].type === "https" &&
             i[1].cors === true &&
             i[1].api === true
-        ).map(i => i[0]);
+        ).map((i: any) => i[0]);
 
         console.log(`Found ${instances.length} potential instances. Testing Top 20...`);
 
