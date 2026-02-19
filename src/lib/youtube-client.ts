@@ -1,60 +1,87 @@
 
 // List of CORS-enabled Piped instances
-const PIPED_INSTANCES = [
-    "https://pipedapi.kavin.rocks",
-    "https://api.piped.io",
-    "https://piped-api.garudalinux.org",
-    "https://pipedapi.drgns.space",
-    "https://pipedapi.tokhmi.xyz",
-    "https://piped-api.lunar.icu",
-    "https://api.piped.privacy.com.de",
-    "https://pipedapi.ducks.party",
-    "https://api.onemandev.net",
-    "https://pipedapi.r4fo.com"
+// Robust list of Piped and Invidious instances
+const INSTANCES = [
+    // Piped Instances (High Reliability)
+    { url: "https://pipedapi.kavin.rocks", type: "piped" },
+    { url: "https://api.piped.privacy.com.de", type: "piped" },
+    { url: "https://pipedapi.adminforge.de", type: "piped" },
+    { url: "https://pipedapi.drgns.space", type: "piped" },
+    { url: "https://api.piped.projectsegfau.lt", type: "piped" },
+    { url: "https://pipedapi.moomoo.me", type: "piped" },
+    { url: "https://pipedapi.smnz.de", type: "piped" },
+    { url: "https://pipedapi.ducks.party", type: "piped" },
+
+    // Invidious Instances (Fallback)
+    { url: "https://inv.tux.pizza", type: "invidious" },
+    { url: "https://invidious.flokinet.to", type: "invidious" },
+    { url: "https://invidious.privacydev.net", type: "invidious" },
+    { url: "https://vid.puffyan.us", type: "invidious" },
+    { url: "https://invidious.fdn.fr", type: "invidious" },
+    { url: "https://invidious.perennialteks.com", type: "invidious" },
+    { url: "https://yt.artemislena.eu", type: "invidious" }
 ];
 
 export async function fetchTranscriptClient(videoId: string): Promise<string | null> {
     console.log(`[Client] Attempting to fetch transcript for ${videoId}...`);
 
-    for (const instance of PIPED_INSTANCES) {
+    for (const instance of INSTANCES) {
         try {
-            // Using AbortController for timeout
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout per instance
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
 
-            const response = await fetch(`${instance}/streams/${videoId}`, {
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
+            let transcriptText: string | null = null;
 
-            if (!response.ok) continue;
+            if (instance.type === "piped") {
+                const response = await fetch(`${instance.url}/streams/${videoId}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
 
-            const data = await response.json();
+                if (!response.ok) continue;
 
-            if (data.subtitles && data.subtitles.length > 0) {
-                // Find English subtitles
-                const track = data.subtitles.find((t: any) =>
-                    t.code === 'en' ||
-                    t.code.startsWith('en') ||
-                    t.name?.toLowerCase().includes('english')
-                ) || data.subtitles[0];
+                const data = await response.json();
+                if (data.subtitles && data.subtitles.length > 0) {
+                    const track = data.subtitles.find((t: any) =>
+                        t.code === 'en' || t.code.startsWith('en') || t.name?.toLowerCase().includes('english')
+                    ) || data.subtitles[0];
 
-                if (track) {
-                    const subResponse = await fetch(track.url);
-                    const vtt = await subResponse.text();
+                    if (track) {
+                        const subRes = await fetch(track.url);
+                        const vtt = await subRes.text();
+                        transcriptText = cleanVTT(vtt);
+                    }
+                }
 
-                    if (vtt && vtt.length > 0) {
-                        const cleaned = cleanVTT(vtt);
-                        if (cleaned.length > 50) {
-                            console.log(`[Client] Successfully fetched from ${instance}`);
-                            return cleaned;
-                        }
+            } else if (instance.type === "invidious") {
+                const response = await fetch(`${instance.url}/api/v1/captions/${videoId}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) continue;
+
+                const data = await response.json();
+                if (data.captions && data.captions.length > 0) {
+                    const track = data.captions.find((t: any) =>
+                        t.languageCode === 'en' || t.languageCode.startsWith('en')
+                    ) || data.captions[0];
+
+                    if (track) {
+                        const subRes = await fetch(`${instance.url}${track.url}`);
+                        const vtt = await subRes.text();
+                        transcriptText = cleanVTT(vtt);
                     }
                 }
             }
+
+            if (transcriptText && transcriptText.length > 50) {
+                console.log(`[Client] Successfully fetched from ${instance.url} (${instance.type})`);
+                return transcriptText;
+            }
+
         } catch (err) {
-            // Ignore errors and try next instance
-            console.warn(`[Client] Failed to fetch from ${instance}`);
+            // console.warn(`[Client] Failed ${instance.url}`);
         }
     }
 

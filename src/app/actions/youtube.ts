@@ -165,36 +165,78 @@ export async function summarizeVideo(url: string, manualTranscript?: string) {
                 }
             }
 
-            // Strategy 4: Third-Party APIs (Piped/Invidious)
+            // Strategy 4: Third-Party APIs (Piped & Invidious)
             if (!transcriptText) {
                 console.log("Strategy 4: Third-party APIs...");
-                const instances = [
-                    "https://pipedapi.kavin.rocks",
-                    "https://api.piped.io",
-                    "https://piped-api.garudalinux.org"
+                const INSTANCES = [
+                    { url: "https://pipedapi.kavin.rocks", type: "piped" },
+                    { url: "https://api.piped.privacy.com.de", type: "piped" },
+                    { url: "https://pipedapi.adminforge.de", type: "piped" },
+                    { url: "https://pipedapi.drgns.space", type: "piped" },
+                    { url: "https://api.piped.projectsegfau.lt", type: "piped" },
+                    { url: "https://pipedapi.moomoo.me", type: "piped" },
+                    { url: "https://pipedapi.smnz.de", type: "piped" },
+                    { url: "https://inv.tux.pizza", type: "invidious" },
+                    { url: "https://invidious.flokinet.to", type: "invidious" },
+                    { url: "https://invidious.privacydev.net", type: "invidious" },
+                    { url: "https://vid.puffyan.us", type: "invidious" },
+                    { url: "https://invidious.fdn.fr", type: "invidious" },
                 ];
 
-                for (const instance of instances) {
+                for (const instance of INSTANCES) {
                     try {
-                        const response = await fetch(`${instance}/streams/${videoId}`);
-                        if (!response.ok) continue;
-                        const data = await response.json();
-                        if (data.subtitles && data.subtitles.length > 0) {
-                            const track = data.subtitles.find((t: any) => t.code === 'en' || t.code.startsWith('en')) || data.subtitles[0];
-                            if (track) {
-                                const subResponse = await fetch(track.url);
-                                const vtt = await subResponse.text();
-                                // Simple VTT cleanup
-                                transcriptText = vtt.replace(/WEBVTT/g, "")
-                                    .replace(/(\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3})/g, "")
-                                    .replace(/<[^>]+>/g, "")
-                                    .replace(/\s+/g, " ")
-                                    .trim();
-                                if (transcriptText.length > 50) break;
+                        const controller = new AbortController();
+                        const timeout = setTimeout(() => controller.abort(), 3000);
+
+                        if (instance.type === "piped") {
+                            const response = await fetch(`${instance.url}/streams/${videoId}`, { signal: controller.signal });
+                            clearTimeout(timeout);
+                            if (!response.ok) continue;
+                            const data = await response.json();
+                            if (data.subtitles && data.subtitles.length > 0) {
+                                const track = data.subtitles.find((t: any) => t.code === 'en' || t.code.startsWith('en')) || data.subtitles[0];
+                                if (track) {
+                                    const subResponse = await fetch(track.url);
+                                    let vtt = await subResponse.text();
+                                    // Cleanup VTT
+                                    vtt = vtt.replace(/WEBVTT/g, "")
+                                        .replace(/(\d{2}:)?\d{2}:\d{2}\.\d{3} --> (\d{2}:)?\d{2}:\d{2}\.\d{3}.*/g, "")
+                                        .replace(/<[^>]+>/g, "")
+                                        .replace(/\s+/g, " ")
+                                        .trim();
+                                    transcriptText = vtt;
+                                    if (transcriptText.length > 50) {
+                                        console.log(` fetched from ${instance.url}`);
+                                        break;
+                                    }
+                                }
+                            }
+                        } else if (instance.type === "invidious") {
+                            const response = await fetch(`${instance.url}/api/v1/captions/${videoId}`, { signal: controller.signal });
+                            clearTimeout(timeout);
+                            if (!response.ok) continue;
+                            const data = await response.json();
+                            if (data.captions && data.captions.length > 0) {
+                                const track = data.captions.find((t: any) => t.languageCode === 'en' || t.languageCode.startsWith('en')) || data.captions[0];
+                                if (track) {
+                                    const subResponse = await fetch(`${instance.url}${track.url}`);
+                                    let vtt = await subResponse.text();
+                                    // Cleanup VTT
+                                    vtt = vtt.replace(/WEBVTT/g, "")
+                                        .replace(/(\d{2}:)?\d{2}:\d{2}\.\d{3} --> (\d{2}:)?\d{2}:\d{2}\.\d{3}.*/g, "")
+                                        .replace(/<[^>]+>/g, "")
+                                        .replace(/\s+/g, " ")
+                                        .trim();
+                                    transcriptText = vtt;
+                                    if (transcriptText.length > 50) {
+                                        console.log(` fetched from ${instance.url}`);
+                                        break;
+                                    }
+                                }
                             }
                         }
                     } catch (e) {
-                        console.error(`Piped instance ${instance} failed:`, e);
+                        // ignore
                     }
                 }
             }
