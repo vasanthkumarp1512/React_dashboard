@@ -53,7 +53,7 @@ async function main() {
             } else {
                 console.log(`❌ ${instance} (Status ${res.status})`);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.log(`❌ ${instance} (Error: ${e.message})`);
         }
     }
