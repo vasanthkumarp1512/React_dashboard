@@ -86,6 +86,25 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
         transcriptText = manualTranscript;
     } else {
         try {
+            // Strategy 0.5: youtube-transcript Library
+            if (!transcriptText) {
+                try {
+                    console.log("Strategy 0.5: Fetching with youtube-transcript lib...");
+                    // Dynamic import inside the strategy to keep scope clean
+                    const { YoutubeTranscript } = await import('youtube-transcript');
+                    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+                    if (transcriptItems && transcriptItems.length > 0) {
+                        transcriptText = transcriptItems.map(item => item.text).join(' ');
+                        if (transcriptText.length > 50) {
+                            debugLogs.push("Strategy 0.5 (youtube-transcript) success.");
+                        }
+                    }
+                } catch (e: any) {
+                    console.log("youtube-transcript lib failed:", e.message);
+                    debugLogs.push(`Strategy 0.5 (youtube-transcript) failed: ${e.message}`);
+                }
+            }
+
             // Strategy 1: Default Web Client
             if (!transcriptText) {
                 try {
