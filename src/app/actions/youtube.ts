@@ -90,6 +90,12 @@ export async function summarizeVideo(url: string, manualTranscript?: string, cli
     let fetchError: string = "";
     const debugLogs: string[] = [...clientLogs]; // Start with client logs
 
+    if (process.env.YOUTUBE_COOKIES) {
+        debugLogs.push("Cookies present: Yes");
+    } else {
+        debugLogs.push("Cookies present: No (Android strategy may fail)");
+    }
+
     if (manualTranscript && manualTranscript.length > 50) {
         console.log("Using manual/client-side transcript...");
         debugLogs.push("Using client-side transcript.");
