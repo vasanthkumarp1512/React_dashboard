@@ -1,0 +1,8 @@
+Fetching transcript for jNQXAC9IVRw via Puppeteer...
+Setting cookies...
+Set 7 cookies.
+Page Title: Me at the zoo - YouTube
+✅ Found captionTracks in HTML via Puppeteer.
+Fetching transcript URL: https://www.youtube.com/api/timedtext?v=jNQXAC9IVRw&ei=qH-WacLKOfmX4t4PoKCR4QU&opi=112496729&exp=xpe&xoaf=5&xowf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1771495960&sparams=ip,ipbits,expire,v,ei,opi,exp,xoaf&signature=0B8BF52C7CC9720B3064371B8E9E7D57ECC724B7.5F1E109DF1890452160E69764586AB396520F8BD&key=yt8&lang=en
+❌ Fetched XML in page context was invalid/empty.
+FAILED.

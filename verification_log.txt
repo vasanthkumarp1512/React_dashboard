@@ -1,0 +1,18 @@
+✅ YOUTUBE_COOKIES found.
+Cookies length: 478
+Cookies preview: APISID=uXc2f66G142h6...
+
+--- Testing Innertube (Strategy 1) WITH COOKIES ---
+❌ Innertube Failed: Request to https://www.youtube.com/youtubei/v1/get_transcript?prettyPrint=false&alt=json failed with status code 400
+
+--- Verifying Manual Fallback (Strategy 3) ---
+Fetching video: https://www.youtube.com/watch?v=jNQXAC9IVRw
+Video Page Response Status: 200
+✅ Found 'captionTracks' in HTML response.
+Found 2 caption tracks.
+Attempting to fetch transcript from: English (en)
+URL: https://www.youtube.com/api/timedtext?v=jNQXAC9IVR...
+Transcript Response Status: 200
+❌ Fetched XML but it looks invalid or empty.
+Response start: 
+Response is completely empty.
